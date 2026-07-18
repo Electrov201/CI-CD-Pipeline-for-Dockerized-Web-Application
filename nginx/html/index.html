@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>docker-github-actions-cicd | Live on AWS EC2</title>
+  <meta name="description" content="Production CI/CD pipeline — Dockerized Nginx deployed to AWS EC2 via GitHub Actions (HTTP Mode)." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & Base ──────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:      #0a0e17;
+      --bg-card:      rgba(255,255,255,0.04);
+      --bg-card-hover:rgba(255,255,255,0.08);
+      --border:       rgba(255,255,255,0.08);
+      --border-hover: rgba(99,179,237,0.4);
+
+      --accent-blue:  #63b3ed;
+      --accent-cyan:  #4fd1c5;
+      --accent-green: #68d391;
+      --accent-purple:#b794f4;
+      --accent-orange:#f6ad55;
+
+      --text-primary: #f0f4ff;
+      --text-muted:   #718096;
+      --text-dim:     #4a5568;
+
+      --gradient-hero: linear-gradient(135deg, #1a1f35 0%, #0a0e17 50%, #0d1929 100%);
+      --gradient-blue: linear-gradient(135deg, #2b6cb0, #1a365d);
+      --gradient-glow: radial-gradient(circle at 50% 0%, rgba(99,179,237,0.12) 0%, transparent 60%);
+
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+      --radius: 12px;
+      --radius-sm: 8px;
+      --transition: 0.25s ease;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg-base);
+      background-image: var(--gradient-hero);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Background Orbs ──────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -20%;
+      left: -10%;
+      width: 60%;
+      height: 60%;
+      background: radial-gradient(circle, rgba(99,179,237,0.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -20%;
+      right: -10%;
+      width: 50%;
+      height: 50%;
+      background: radial-gradient(circle, rgba(180,144,244,0.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ───────────────────────────────────────────── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+    /* ── Navigation ──────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10,14,23,0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 0;
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent-blue);
+      letter-spacing: -0.5px;
+    }
+    .nav-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(104,211,145,0.12);
+      border: 1px solid rgba(104,211,145,0.25);
+      color: var(--accent-green);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      animation: pulse-live 2s infinite;
+    }
+    .nav-badge::before { content: '●'; font-size: 0.6rem; }
+
+    @keyframes pulse-live {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* ── Hero Section ─────────────────────────────────────── */
+    .hero {
+      padding: 100px 0 70px;
+      text-align: center;
+    }
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(99,179,237,0.1);
+      border: 1px solid rgba(99,179,237,0.2);
+      color: var(--accent-blue);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      margin-bottom: 28px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.8rem);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #f0f4ff 0%, var(--accent-blue) 50%, var(--accent-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 580px;
+      margin: 0 auto 40px;
+      line-height: 1.75;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all var(--transition);
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #2b6cb0, #1a4a7a);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(43,108,176,0.35);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(43,108,176,0.5);
+    }
+    .btn-outline {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-card-hover);
+      transform: translateY(-2px);
+    }
+
+    /* ── Pipeline Flow ────────────────────────────────────── */
+    .pipeline {
+      padding: 60px 0;
+      text-align: center;
+    }
+    .pipeline-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 28px;
+    }
+    .pipeline-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .pipeline-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .pipeline-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .pipeline-icon::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(99,179,237,0.1), transparent);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .pipeline-step:hover .pipeline-icon::after { opacity: 1; }
+    .pipeline-step:hover .pipeline-icon { border-color: var(--border-hover); transform: translateY(-3px); }
+
+    .pipeline-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+    }
+    .pipeline-arrow {
+      color: var(--text-dim);
+      font-size: 1rem;
+      padding: 0 4px;
+      margin-bottom: 22px;
+    }
+
+    /* ── Section Heading ──────────────────────────────────── */
+    .section { padding: 60px 0; }
+    .section-header { text-align: center; margin-bottom: 42px; }
+    .section-header h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
+    }
+    .section-header p { color: var(--text-muted); font-size: 0.95rem; }
+
+    /* ── Tech Stack Grid ──────────────────────────────────── */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .tech-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all var(--transition);
+      cursor: default;
+    }
+    .tech-card:hover {
+      border-color: var(--border-hover);
+      background: var(--bg-card-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+    .tech-emoji { font-size: 1.6rem; flex-shrink: 0; }
+    .tech-info { min-width: 0; }
+    .tech-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .tech-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── CI/CD Status Cards ──────────────────────────────── */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .status-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      transition: all var(--transition);
+    }
+    .status-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }
+    .status-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .status-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+    }
+    .status-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .badge-green  { background: rgba(104,211,145,0.15); color: var(--accent-green); }
+    .badge-blue   { background: rgba(99,179,237,0.15);  color: var(--accent-blue); }
+    .badge-purple { background: rgba(183,148,244,0.15); color: var(--accent-purple); }
+    .badge-orange { background: rgba(246,173,85,0.15);  color: var(--accent-orange); }
+
+    .status-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: var(--text-primary);
+    }
+    .status-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* ── Terminal Block ───────────────────────────────────── */
+    .terminal {
+      background: #0d1117;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-top: 28px;
+    }
+    .terminal-bar {
+      background: #161b22;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red    { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green  { background: #28c840; }
+    .terminal-body {
+      padding: 20px 24px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      line-height: 1.8;
+    }
+    .t-comment  { color: #484f58; }
+    .t-cmd      { color: var(--accent-blue); }
+    .t-success  { color: var(--accent-green); }
+    .t-info     { color: var(--text-muted); }
+    .t-warn     { color: var(--accent-orange); }
+    .t-cursor   { display: inline-block; width: 8px; height: 14px; background: var(--accent-blue); animation: blink 1s step-end infinite; vertical-align: -2px; margin-left: 4px; }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Workflow Steps ───────────────────────────────────── */
+    .workflow-steps {
+      counter-reset: steps;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .workflow-step {
+      display: flex;
+      gap: 20px;
+      position: relative;
+    }
+    .workflow-step:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 19px;
+      top: 44px;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(to bottom, rgba(99,179,237,0.3), transparent);
+    }
+    .step-num {
+      counter-increment: steps;
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-hover);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent-blue);
+    }
+    .step-content {
+      flex: 1;
+      padding: 8px 0 32px;
+    }
+    .step-content h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+    .step-content p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    .step-code {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-top: 10px;
+      color: var(--accent-cyan);
+      overflow-x: auto;
+    }
+
+    /* ── Secrets Table ────────────────────────────────────── */
+    .secrets-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    .secrets-table th {
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+    }
+    .secrets-table td {
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .secrets-table tr:last-child td { border-bottom: none; }
+    .secrets-table tr:hover td { background: var(--bg-card); }
+    .secrets-table code {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      background: rgba(99,179,237,0.1);
+      color: var(--accent-blue);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 0;
+      text-align: center;
+    }
+    .footer-text {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+    }
+    .footer-text span {
+      color: var(--accent-blue);
+      font-weight: 600;
+    }
+
+    /* ── Divider ──────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--border), transparent);
+      margin: 0;
+    }
+
+    /* ── Responsive ───────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .hero { padding: 70px 0 50px; }
+      .pipeline-flow { gap: 4px; }
+      .pipeline-arrow { font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Navigation ─────────────────────────────────────── -->
+  <nav>
+    <div class="container">
+      <div class="nav-inner">
+        <span class="nav-logo">docker-github-actions-cicd</span>
+        <span class="nav-badge" id="live-badge">Live on EC2</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ───────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-tag">🚀 Production CI/CD Pipeline</div>
+      <h1>Automated Deploy to<br/>AWS EC2 with Docker</h1>
+      <p>Every <code style="font-family:var(--font-mono);background:rgba(99,179,237,0.1);color:var(--accent-blue);padding:2px 6px;border-radius:4px;">git push</code> automatically builds a Docker image, pushes it to GitHub Container Registry, and deploys it here — zero manual steps.</p>
+      <div class="hero-buttons">
+        <a id="github-link" href="https://github.com" class="btn btn-primary" target="_blank" rel="noopener">
+          📂 View on GitHub
+        </a>
+        <a id="actions-link" href="https://github.com" class="btn btn-outline" target="_blank" rel="noopener">
+          ⚡ GitHub Actions
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Pipeline Flow ──────────────────────────────────── -->
+  <section class="pipeline">
+    <div class="container">
+      <p class="pipeline-title">Deployment Pipeline</p>
+      <div class="pipeline-flow" role="list" aria-label="CI/CD pipeline steps">
+        <div class="pipeline-step" role="listitem">
+          <div class="pipeline-icon">💻</div>
+          <span class="pipeline-label">git push</span>
+        </div>
+        <div class="pipeline-arrow" aria-hidden="true">→</div>
+        <div class="pipeline-step" role="listitem">
+          <div class="pipeline-icon">⚙️</div>
+          <span class="pipeline-label">Actions</span>
+        </div>
+        <div class="pipeline-arrow" aria-hidden="true">→</div>
+        <div class="pipeline-step" role="listitem">
+          <div class="pipeline-icon">🐳</div>
+          <span class="pipeline-label">Docker Build</span>
+        </div>
+        <div class="pipeline-arrow" aria-hidden="true">→</div>
+        <div class="pipeline-step" role="listitem">
+          <div class="pipeline-icon">📦</div>
+          <span class="pipeline-label">Push GHCR</span>
+        </div>
+        <div class="pipeline-arrow" aria-hidden="true">→</div>
+        <div class="pipeline-step" role="listitem">
+          <div class="pipeline-icon">🔑</div>
+          <span class="pipeline-label">SSH to EC2</span>
+        </div>
+        <div class="pipeline-arrow" aria-hidden="true">→</div>
+        <div class="pipeline-step" role="listitem">
+          <div class="pipeline-icon">🌐</div>
+          <span class="pipeline-label">Deploy</span>
+        </div>
+        <div class="pipeline-arrow" aria-hidden="true">→</div>
+        <div class="pipeline-step" role="listitem">
+          <div class="pipeline-icon">✅</div>
+          <span class="pipeline-label">Live!</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── Status Cards ───────────────────────────────────── -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Deployment Status</h2>
+        <p>Real-time snapshot of this deployment</p>
+      </div>
+      <div class="status-grid">
+        <div class="status-card" id="card-status">
+          <div class="status-header">
+            <span class="status-title">App Status</span>
+            <span class="status-badge badge-green">RUNNING</span>
+          </div>
+          <div class="status-value">Healthy</div>
+          <div class="status-sub">Container responding normally</div>
+        </div>
+        <div class="status-card" id="card-ssl">
+          <div class="status-header">
+            <span class="status-title">Protocol</span>
+            <span class="status-badge badge-blue">HTTP</span>
+          </div>
+          <div class="status-value">Port 80</div>
+          <div class="status-sub">Direct access via EC2 Public IP</div>
+        </div>
+        <div class="status-card" id="card-platform">
+          <div class="status-header">
+            <span class="status-title">Platform</span>
+            <span class="status-badge badge-purple">AWS EC2</span>
+          </div>
+          <div class="status-value">Ubuntu</div>
+          <div class="status-sub">Docker + Docker Compose</div>
+        </div>
+        <div class="status-card" id="card-registry">
+          <div class="status-header">
+            <span class="status-title">Image Registry</span>
+            <span class="status-badge badge-orange">GHCR</span>
+          </div>
+          <div class="status-value">Latest</div>
+          <div class="status-sub">GitHub Container Registry</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── Tech Stack ─────────────────────────────────────── -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Tech Stack</h2>
+        <p>Every technology powering this pipeline</p>
+      </div>
+      <div class="tech-grid" id="tech-grid">
+        <div class="tech-card">
+          <span class="tech-emoji">☁️</span>
+          <div class="tech-info">
+            <div class="tech-name">AWS EC2</div>
+            <div class="tech-desc">Cloud compute platform</div>
+          </div>
+        </div>
+        <div class="tech-card">
+          <span class="tech-emoji">🐧</span>
+          <div class="tech-info">
+            <div class="tech-name">Ubuntu Linux</div>
+            <div class="tech-desc">Server operating system</div>
+          </div>
+        </div>
+        <div class="tech-card">
+          <span class="tech-emoji">🐳</span>
+          <div class="tech-info">
+            <div class="tech-name">Docker</div>
+            <div class="tech-desc">Container runtime</div>
+          </div>
+        </div>
+        <div class="tech-card">
+          <span class="tech-emoji">🎵</span>
+          <div class="tech-info">
+            <div class="tech-name">Docker Compose</div>
+            <div class="tech-desc">Multi-container orchestration</div>
+          </div>
+        </div>
+        <div class="tech-card">
+          <span class="tech-emoji">⚙️</span>
+          <div class="tech-info">
+            <div class="tech-name">GitHub Actions</div>
+            <div class="tech-desc">CI/CD automation</div>
+          </div>
+        </div>
+        <div class="tech-card">
+          <span class="tech-emoji">📦</span>
+          <div class="tech-info">
+            <div class="tech-name">GHCR</div>
+            <div class="tech-desc">Container image registry</div>
+          </div>
+        </div>
+        <div class="tech-card">
+          <span class="tech-emoji">🌐</span>
+          <div class="tech-info">
+            <div class="tech-name">Nginx</div>
+            <div class="tech-desc">High-performance web server</div>
+          </div>
+        </div>
+        <div class="tech-card">
+          <span class="tech-emoji">⚡</span>
+          <div class="tech-info">
+            <div class="tech-name">HTTP / Port 80</div>
+            <div class="tech-desc">Zero-domain IP deployment</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── Terminal Block ─────────────────────────────────── -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2>Live Deployment Log</h2>
+        <p>What GitHub Actions runs on every push to <code style="font-family:var(--font-mono);background:rgba(99,179,237,0.1);color:var(--accent-blue);padding:2px 6px;border-radius:4px;">main</code></p>
+      </div>
+      <div class="terminal" id="terminal-block" role="region" aria-label="Deployment log">
+        <div class="terminal-bar" aria-hidden="true">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+          <span style="margin-left:8px;font-family:var(--font-mono);font-size:0.72rem;color:#484f58;">GitHub Actions — deploy.yml</span>
+        </div>
+        <div class="terminal-body">
+          <div><span class="t-comment"># Job 1: Build &amp; Push Docker Image</span></div>
+          <div><span class="t-cmd">$ docker buildx build --push -t ghcr.io/user/app:latest ./nginx</span></div>
+          <div><span class="t-success">✓ Image pushed to ghcr.io — sha256:a1b2c3d4</span></div>
+          <br/>
+          <div><span class="t-comment"># Job 2: Deploy to EC2 via SSH</span></div>
+          <div><span class="t-info">━━ Starting deployment on EC2 ━━</span></div>
+          <div><span class="t-cmd">$ git pull origin main</span></div>
+          <div><span class="t-success">✓ Already up to date.</span></div>
+          <div><span class="t-cmd">$ docker compose pull</span></div>
+          <div><span class="t-success">✓ Pulled nginx:latest</span></div>
+          <div><span class="t-cmd">$ docker compose up -d --remove-orphans</span></div>
+          <div><span class="t-success">✓ Container nginx-app started</span></div>
+          <div><span class="t-cmd">$ ./scripts/health-check.sh</span></div>
+          <div><span class="t-success">✓ Health check passed! (200 OK)</span></div>
+          <br/>
+          <div><span class="t-success">✅ Deployment complete!</span><span class="t-cursor"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── Footer ─────────────────────────────────────────── -->
+  <footer>
+    <div class="container">
+      <p class="footer-text">
+        Built with <span>GitHub Actions</span> · <span>Docker</span> · <span>AWS EC2</span> · <span>Nginx</span>
+      </p>
+      <p class="footer-text" style="margin-top:6px; font-size:0.75rem;">
+        Deployed automatically on every push to <span>main</span> 🚀
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // Animate cards on scroll
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => {
+            entry.target.style.opacity = '1';
+            entry.target.style.transform = 'translateY(0)';
+          }, i * 60);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.tech-card, .status-card, .pipeline-step').forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(16px)';
+      el.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+      observer.observe(el);
+    });
+  </script>
+</body>
+</html>

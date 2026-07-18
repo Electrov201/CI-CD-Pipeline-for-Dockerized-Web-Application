@@ -1,0 +1,29 @@
+# ── Environment & Secrets ─────────────────────────────────────
+.env
+*.pem
+*.key
+*.crt
+
+# ── Docker ────────────────────────────────────────────────────
+.docker/
+
+# ── OS Files ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Editor ───────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Node (if used for tooling) ────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-error.log*

@@ -1,0 +1,36 @@
+# =============================================================
+#  docker-compose.dev.yml — Local Development Override
+#
+#  Usage:  docker compose -f docker-compose.dev.yml up
+#  Builds: Local Dockerfile (no need to push/pull from GHCR)
+#  Access: http://localhost:8080
+# =============================================================
+
+services:
+  nginx:
+    # Override: build from local source instead of pulling from GHCR
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+
+    image: nginx-app-dev:local
+    container_name: nginx-app-dev
+
+    ports:
+      - "8080:80"         # Access at http://localhost:8080
+
+    volumes:
+      # Live-reload: mount HTML directory directly
+      - ./nginx/html:/usr/share/nginx/html:ro
+      # Mount config for live edits (optional)
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+    # Override healthcheck for dev
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+    # Don't restart automatically in dev
+    restart: "no"
